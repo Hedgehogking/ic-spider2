@@ -1,5 +1,8 @@
+const fs = require('fs');
 const XLSX = require('xlsx');
 const { utils } = XLSX;
+
+const exportFileDir = './export-files';
 
 module.exports = class Excel {
   constructor(data = [], fileName = '') {
@@ -10,6 +13,9 @@ module.exports = class Excel {
   }
 
   writeExcel() {
-    return XLSX.writeFile(this.wb, `./export-files/${this.fileName}.xlsx`);
+    if (!fs.existsSync(exportFileDir)) {
+      fs.mkdirSync(exportFileDir);
+    }
+    return XLSX.writeFile(this.wb, `${exportFileDir}/${this.fileName}.xlsx`);
   }
 }
