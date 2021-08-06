@@ -1,0 +1,11 @@
+{
+  "name": "ci-spider2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.10",
+    "excel-export": "^0.5.1",
+    "request": "^2.88.2"
+  }
+}
