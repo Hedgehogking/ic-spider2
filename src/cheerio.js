@@ -6,8 +6,9 @@ const Excel = require('./excel');
 const zlib = require('zlib');
 
 module.exports = class GetListByCheerio {
-  constructor({ url, getListAfterLoadPage }) {
+  constructor({ pageLen = 10, url = (page = 1) => {return ''}, getListAfterLoadPage = (this, $) => {} }) {
     this.page = 1;
+    this.pageLen = pageLen;
     this.allList = [];
     this.companyName = '';
     this.getUrl = url;
@@ -26,7 +27,7 @@ module.exports = class GetListByCheerio {
   async getList(page) {
     const list = await this.requestPage(page);
     // 最后一页
-    if (list.length < 8) {
+    if (list.length < this.pageLen) {
       return list
     }
     // 后面的页
