@@ -6,7 +6,7 @@ const Excel = require('./excel');
 const zlib = require('zlib');
 
 module.exports = class GetListByCheerio {
-  constructor({ pageLen = 10, url = (page = 1) => {return ''}, getListAfterLoadPage = (this, $) => {} }) {
+  constructor({ pageLen = 10, url = (page = 1) => {return ''}, getListAfterLoadPage = (instance, $) => {} }) {
     this.page = 1;
     this.pageLen = pageLen;
     this.allList = [];
