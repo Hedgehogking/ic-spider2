@@ -7,7 +7,7 @@ const zlib = require('zlib');
 
 module.exports = class GetListByCheerio {
   constructor({ url, getListAfterLoadPage }) {
-    this.page = 0;
+    this.page = 1;
     this.allList = [];
     this.companyName = '';
     this.getUrl = url;
@@ -98,6 +98,7 @@ module.exports = class GetListByCheerio {
           list = this.getListAfterLoadPage(this, $);
         }
         if (list.length) {
+          console.log(list);
           console.log(`get page ${this.page} data success`);
         }
         resolve(list);
