@@ -5,6 +5,8 @@
   "license": "MIT",
   "dependencies": {
     "cheerio": "^1.0.0-rc.10",
+    "gm": "^1.23.1",
+    "node-tesseract-ocr": "^2.2.1",
     "puppeteer": "^10.2.0",
     "request": "^2.88.2",
     "xlsx": "^0.17.0"
