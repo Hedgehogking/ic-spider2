@@ -1,7 +1,7 @@
 const RESULT_ID = '#resultList > li';
 const RESULT_TITLE_ID = '#resultList_title > div';
 
-module.exports = async function getSearchResult(browser, page) {
+module.exports = async function getSearchResult(page) {
   let data = {
     chapterTitle: [],
     chapterList: [],
@@ -11,10 +11,7 @@ module.exports = async function getSearchResult(browser, page) {
   const resultEl = await page.waitForSelector(RESULT_ID).catch(ex=>{
     console.log("oh....no...!!!, i can not see anything!!!");
   });
-  const titleEl = await page.waitForSelector(RESULT_TITLE_ID).catch(ex => {
-    console.log('no result title');
-  })
-  if (!resultEl || !titleEl) {
+  if (!resultEl) {
     console.log('maybe empty');
     return data;
   }
