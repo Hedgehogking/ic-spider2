@@ -90,6 +90,10 @@ class Page {
 		this.page = page;
 		this.model = model;
 		this.pageNum = 1;
+		/**
+		 * mfg 厂商，但是无效
+		 * searchAreaCode=1&searchMarket=华强电子世界
+		 */
 		this.CHAPTERS_URL = `https://www.ic.net.cn/search/${model}.html`;
 		this.onModelFinish = onModelFinish;
 		this.list = [];
@@ -100,25 +104,30 @@ class Page {
 	async run(page, model, pageNum, CHAPTERS_URL){
 		// 保存最后一次请求的网页
 		this.history = { CHAPTERS_URL, pageNum };
-		// 加载网页
-		await loadWebsite(page, `${CHAPTERS_URL}?page=${pageNum}`, model);
-		// 检测该网页最终类型，走相应逻辑
-		await this.goWithType(page, model);
-		// 顺利通过，开始获取数据
-		const { chapterTitle, chapterList } = await getSearchResult(page);
-		if (chapterList.length) {
-			this.list = this.list.concat(chapterList);
-			console.log('\x1B[32m%s\x1B[0m', `
-			search: ${model};
-			page: ${pageNum};
-			length: ${chapterList.length};
-			status: success`);
-			setTimeout(() => {
-				this.run(page, model, ++pageNum, CHAPTERS_URL);
-			}, 3000);
-			return;
+		// WARNING: 超过10页后的所有都是重复的……
+		if (pageNum <= 10) {
+			// 加载网页
+			await loadWebsite(page, `${CHAPTERS_URL}?page=${pageNum}`, model);
+			// 检测该网页最终类型，走相应逻辑
+			await this.goWithType(page, model);
+			// 顺利通过，开始获取数据
+			const { chapterTitle, chapterList } = await getSearchResult(page);
+			if (chapterList.length) {
+				this.list = this.list.concat(chapterList);
+				console.log('\x1B[32m%s\x1B[0m', `
+				search: ${model};
+				page: ${pageNum};
+				length: ${chapterList.length};
+				status: success`);
+				setTimeout(() => {
+					this.run(page, model, ++pageNum, CHAPTERS_URL);
+				}, 3000);
+				return;
+			}
+			console.log('\x1B[31m%s\x1B[0m', 'get page data empty');
+		} else {
+			// console.log('\x1B[31m%s\x1B[0m', 'data over 10 pages, all repeat');
 		}
-		console.log('\x1B[31m%s\x1B[0m', 'get page data empty');
 		console.log('\x1B[33m%s\x1B[0m', `${model} finished: ${this.list.length}`);
 		this.onModelFinish();
 	}
