@@ -95,23 +95,13 @@ class Page {
 	}
 
 	async run(page, model, pageNum, CHAPTERS_URL){
+		// 保存最后一次请求的网页
 		this.history = { CHAPTERS_URL, pageNum };
+		// 加载网页
 		await loadWebsite(page, `${CHAPTERS_URL}?page=${pageNum}`, model);
-		const type = await getPageType(page);
-		if (type === 1) {
-			// 空搜索页
-			// return;
-		} else if (type === 2) {
-			// 验证码页
-			await hackVerificationCode(page);
-			// 验证码完成
-			// TODO：
-			return;
-		} else if (type === 3) {
-			// 其他页
-			await this.run(page, model, this.history.pageNum, this.history.CHAPTERS_URL);
-			return;
-		}
+		// 检测该网页最终类型，走相应逻辑
+		await this.goWithType(page, model);
+		// 顺利通过，开始获取数据
 		const { chapterTitle, chapterList } = await getSearchResult(page);
 		if (chapterList.length) {
 			console.log('\x1B[32m%s\x1B[0m', `
@@ -129,6 +119,30 @@ class Page {
 		if(!this.browser.pages.length) {
 			this.closeBrowser();
 		};
+	}
+
+	async goWithType(page, model) {
+		const type = await getPageType(page);
+		return new Promise(async (resolve, reject) => {
+			if (type === 1) {
+				// 空搜索页
+				// return;
+			} else if (type === 2) {
+				// 验证码页
+				await hackVerificationCode(page, () => {
+					// 验证码完成
+					this.run(page, model, this.history.pageNum, this.history.CHAPTERS_URL);
+					reject('break js');
+				});
+				return;
+			} else if (type === 3) {
+				// 其他页
+				this.run(page, model, this.history.pageNum, this.history.CHAPTERS_URL);
+				reject('break js');
+				return;
+			}
+			resolve('continue js');
+		});
 	}
 
 	async closeBrowser() {
