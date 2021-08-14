@@ -84,14 +84,17 @@ async function getPageType(page) {
 }
 
 class Page {
-	constructor(browser, page, model, pageNum, CHAPTERS_URL) {
+	constructor(browser, page, model, onModelFinish) {
+		// let CHAPTERS_URL = `https://www.ic.net.cn/searchPnCode.php`;
 		this.browser = browser;
 		this.page = page;
 		this.model = model;
-		this.pageNum = pageNum;
-		this.CHAPTERS_URL = CHAPTERS_URL;
+		this.pageNum = 1;
+		this.CHAPTERS_URL = `https://www.ic.net.cn/search/${model}.html`;
+		this.onModelFinish = onModelFinish;
+		this.list = [];
 
-		this.run(page, model, pageNum, CHAPTERS_URL);
+		this.run(page, model, this.pageNum, this.CHAPTERS_URL);
 	}
 
 	async run(page, model, pageNum, CHAPTERS_URL){
@@ -104,6 +107,7 @@ class Page {
 		// 顺利通过，开始获取数据
 		const { chapterTitle, chapterList } = await getSearchResult(page);
 		if (chapterList.length) {
+			this.list = this.list.concat(chapterList);
 			console.log('\x1B[32m%s\x1B[0m', `
 			search: ${model};
 			page: ${pageNum};
@@ -115,10 +119,8 @@ class Page {
 			return;
 		}
 		console.log('\x1B[31m%s\x1B[0m', 'get page data empty');
-		page.close();
-		if(!this.browser.pages.length) {
-			this.closeBrowser();
-		};
+		console.log('\x1B[33m%s\x1B[0m', `${model} finished: ${this.list.length}`);
+		this.onModelFinish();
 	}
 
 	async goWithType(page, model) {
@@ -144,38 +146,43 @@ class Page {
 			resolve('continue js');
 		});
 	}
-
-	async closeBrowser() {
-		console.log('close browser');
-		await this.browser.close().catch(ex=>{
-			console.log('fail to close the browser!');
-		});
-	}
 }
 
 module.exports = class Search {
 	constructor(models) {
 		this.models = models;
+		this.curModelIdx = 0;
 		this.init();
 	}
 
 	async init() {
 		this.browser = await getBrowser();
-		this.models.forEach(async model => {
-			const page = await this.browser.newPage().catch(err=>{
-				console.log(err);
-			});
-			if (!page) {
-				console.log('fail to open page!');
-				return;
+		const page = await this.browser.newPage().catch(err=>{
+			console.log(err);
+		});
+		if (!page) {
+			console.log('fail to open page!');
+			return;
+		}
+		// 不行就用代理
+		console.log('start to expose function "window.stop()"');
+		await page.exposeFunction('stop', () => { return Promise.resolve('already stop') })
+
+		const onModelFinish = () => {
+			if (this.curModelIdx < this.models.length) {
+				new Page(this.browser, page, this.models[this.curModelIdx], onModelFinish);
+				this.curModelIdx++;
+			} else {
+				console.log('all finished');
+				page.close();
+				if(!this.browser.pages.length) {
+					console.log('close browser');
+					this.browser.close().catch(ex=>{
+						console.log('fail to close the browser!');
+					});
+				};
 			}
-			let pageNum = 1;
-			// let CHAPTERS_URL = `https://www.ic.net.cn/searchPnCode.php`;
-			let CHAPTERS_URL = `https://www.ic.net.cn/search/${model}.html`;
-			// 不行就用代理
-			console.log('start to expose function "window.stop()"');
-			await page.exposeFunction('stop', () => { return Promise.resolve('already stop') })
-			new Page(this.browser, page, model, pageNum, CHAPTERS_URL);
-		})
+		}
+		onModelFinish();
 	}
 }

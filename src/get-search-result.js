@@ -7,8 +7,9 @@ module.exports = async function getSearchResult(page) {
     chapterList: [],
   }
 
+  await page.waitForSelector('.footer');
   console.log('start to find result element in page...');
-  const resultEl = await page.waitForSelector(RESULT_ID).catch(ex=>{
+  const resultEl = await page.$(RESULT_ID).catch(ex=>{
     console.log("oh....no...!!!, i can not see anything!!!");
   });
   if (!resultEl) {
