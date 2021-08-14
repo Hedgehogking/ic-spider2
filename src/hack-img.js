@@ -12,8 +12,7 @@ var gm = require('gm');
 function processImg(imgPath, newPath, thresholdVal) {
   return new Promise((resolve, reject) => {
     gm(imgPath)
-      .threshold(thresholdVal || 75, true)
-      .resize(300, 90)
+      .threshold(thresholdVal || 45, true)
       .write(newPath, (err) => {
         if (err) return reject(err);
         resolve(newPath);
@@ -28,10 +27,9 @@ function processImg(imgPath, newPath, thresholdVal) {
  * @returns {Promise}
  */
 async function recognizer(imgPath, options) {
-  options = Object.assign({ psm: 7 }, options);
+  options = Object.assign({ oem: 0, psm: 3, dpi: 100 }, options);
   const text = await tesseract.recognize(imgPath, options);
-  console.log(text);
-  return text.replace(/[\r\n\s]/gm, '');
+  return text.replace(/[^0-9a-zA-Z]/gm, '');
 }
 
 module.exports = async function hackImg(path) {
