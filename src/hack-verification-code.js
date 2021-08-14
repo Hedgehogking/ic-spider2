@@ -11,7 +11,7 @@ function createDir(path) {
   }
 }
 
-async function findAndhackCode(page) {
+async function findAndhackCode(page, callback) {
   await page.waitForSelector(VERIFICATION_CODE);
   await page.evaluate(async (HACK_CODE_IMAGES_PATH, VERIFICATION_CODE) => {
     const codeFileName = `code_${Math.floor(Math.random() * 1000000)}.jpg`;
@@ -37,23 +37,41 @@ async function findAndhackCode(page) {
     console.log(err);
   });
   await page.click('[name="btn_submit"]');
+  const result = await checkType(page);
+  if (!result) {
+    callback();
+  }
 }
 
-module.exports = async function hackVerificationCode(page) {
+async function checkType(page) {
+  await page.waitForSelector('.footer');
+  const searchCode = page.$(VERIFICATION_CODE);
+  return searchCode;
+}
+
+module.exports = async function hackVerificationCode(page, callback) {
   function screenshot(options) {
     return page.screenshot(options);
   }
-
-  await page.exposeFunction('createDir', createDir);
-  await page.exposeFunction('screenshot', screenshot);
-  await page.exposeFunction('hackImg', hackImg);
+  try {
+    await page.exposeFunction('createDir', createDir);
+    await page.exposeFunction('screenshot', screenshot);
+    await page.exposeFunction('hackImg', hackImg);
+  } catch (error) {
+    console.log('this error jump: ', error);
+  }
   page.on('dialog', async (dialog) => {
+    // 没通过
     console.log(dialog.message());
-    await dialog.accept();
+    try {
+      await dialog.accept();
+    } catch (error) {
+      console.log(error);
+    }
     // 再刷
     setTimeout(async () => {
-      await findAndhackCode(page);
+      await findAndhackCode(page, callback);
     }, 0);
   })
-  await findAndhackCode(page);
+  await findAndhackCode(page, callback);
 }
