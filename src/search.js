@@ -164,7 +164,7 @@ class Page {
 				// 其他页
 				// 重刷页面
 				this.action(pageNum, baseUrl);
-				reject('break js other page');
+				reject(`break js other page ${this.pageTag.url()}`);
 				return;
 			}
 			resolve('continue js');
