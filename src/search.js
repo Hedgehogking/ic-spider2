@@ -174,7 +174,7 @@ class Page {
 	async doInList() {
 		await this.pageTag.waitForSelector('.footer');
 		const icCount = await this.pageTag.$('#icCount');
-		const pagepicker = await this.pageTag.$$('.pagepicker > li');
+		const pagepicker = await this.pageTag.$('.pagepicker');
 		const return_empty = await this.pageTag.$('.return_empty');
 		const searchAreaCode = this.search.areaIdx > -1;
 		const searchMarket = this.search.marketIdx > -1;
@@ -186,7 +186,8 @@ class Page {
 			this.nextStep();
 			return Promise.reject('break js empty page');
 		}
-		if (pagepicker.length === 10) {
+		const pageLen = await pagepicker.$$('li');
+		if (pageLen.length === 10) {
 			if (!searchAreaCode) {
 				// 搜索页，需分地域搜索
 				this.startArea();
@@ -213,7 +214,7 @@ class Page {
 
 	nextPage() {
 		if (this.pageNum >= 10) {
-			console.log('\x1B[31m%s\x1B[0m', 'data over 10 pages, all repeat ', this.pageTag.url());
+			console.log('\x1B[34m%s\x1B[0m', 'data over 10 pages, all repeat ', this.pageTag.url());
 			this.nextStep();
 			return;
 		}
