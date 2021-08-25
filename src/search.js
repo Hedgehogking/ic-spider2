@@ -226,13 +226,13 @@ class Page {
 		const searchMarket = this.search.marketIdx > -1;
 		if (!searchAreaCode) {
 			// 下一个型号
-			nextModel();
+			this.nextModel();
 		} else if (!searchMarket) {
 			// 下一个城市
-			nextArea();
+			this.nextArea();
 		} else {
 			// 下一个区域
-			nextMarket();
+			this.nextMarket();
 		}
 	}
 
