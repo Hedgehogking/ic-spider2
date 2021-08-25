@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const getSearchResult = require('./get-search-result');
 const hackVerificationCode = require('./hack-verification-code');
+const area = require('./area');
 
 const MAX_RT = 3;
 
@@ -40,11 +41,11 @@ async function getBrowser() {
 	return tempbrowser;
 }
 
-async function loadWebsite(page, url, model) {
+async function loadWebsite(pageTag, url, model) {
 	let i = MAX_RT;
 	function load() {
 		console.log(`${model} load url: ${url}`);
-		return page.goto(url, {
+		return pageTag.goto(url, {
 			'waitUntil':'domcontentloaded',
 			'timeout':60000
 		}).catch(async ex=>{
@@ -60,19 +61,15 @@ async function loadWebsite(page, url, model) {
 	await load();
 }
 
-async function getPageType(page) {
-  await page.waitForSelector('.footer');
+async function getPageType(pageTag) {
+  await pageTag.waitForSelector('.footer');
 	let tmpType = 0;
-	let resultList = await page.$('#resultList');
-	let return_empty = await page.$('.return_empty');
-	let searchCode = await page.$('#searchCode');
-	console.log(!!resultList, !!return_empty, !!searchCode);
-	if (resultList) {
-		// 搜索页
-		tmpType = 0
-	} else if (return_empty) {
-		// 空搜索页
-		tmpType = 1;
+	const searchCode = await pageTag.$('#searchCode');
+	const icCount = await pageTag.$('#icCount');
+
+	if (icCount) {
+		// 数据页
+		tmpType = 0;
 	} else if (searchCode) {
 		// 验证码页
 		tmpType = 2;
@@ -83,77 +80,205 @@ async function getPageType(page) {
 	return tmpType;
 }
 
+function makeUrl({ baseUrl, pageNum, areaIdx, marketIdx }) {
+	let url = `${baseUrl}?`;
+	if (areaIdx > -1) {
+		url += `searchAreaCode=${area[areaIdx].city}&`;
+	}
+	if (marketIdx > -1) {
+		url += `searchMarket=${area[areaIdx].children[marketIdx]}&`;
+	}
+	url += `page=${pageNum}`
+	return url;
+}
+
 class Page {
-	constructor(browser, page, model, onModelFinish) {
-		// let CHAPTERS_URL = `https://www.ic.net.cn/searchPnCode.php`;
+	constructor(browser, pageTag, model, onModelFinish) {
 		this.browser = browser;
-		this.page = page;
+		this.pageTag = pageTag;
 		this.model = model;
 		this.pageNum = 1;
 		/**
 		 * mfg 厂商，但是无效
-		 * searchAreaCode=1&searchMarket=华强电子世界
+		 * searchAreaCode=1
+		 * searchMarket=华强电子世界
+		 * qty=1000
+		 * sort=down
 		 */
-		this.CHAPTERS_URL = `https://www.ic.net.cn/search/${model}.html`;
+		// this.baseUrl = `https://www.ic.net.cn/searchPnCode.php`;
+		this.baseUrl = `https://www.ic.net.cn/search/${model}.html`;
+		this.search = { areaIdx: -1, marketIdx: -1 };
 		this.onModelFinish = onModelFinish;
 		this.list = [];
 
-		this.run(page, model, this.pageNum, this.CHAPTERS_URL);
+		this.action(this.pageNum, this.baseUrl);
 	}
 
-	async run(page, model, pageNum, CHAPTERS_URL){
+	async action(pageNum, baseUrl) {
 		// 保存最后一次请求的网页
-		this.history = { CHAPTERS_URL, pageNum };
-		// WARNING: 超过10页后的所有都是重复的……
-		if (pageNum <= 10) {
-			// 加载网页
-			await loadWebsite(page, `${CHAPTERS_URL}?page=${pageNum}`, model);
-			// 检测该网页最终类型，走相应逻辑
-			await this.goWithType(page, model);
-			// 顺利通过，开始获取数据
-			const { chapterTitle, chapterList } = await getSearchResult(page);
-			if (chapterList.length) {
-				this.list = this.list.concat(chapterList);
-				console.log('\x1B[32m%s\x1B[0m', `
-				search: ${model};
-				page: ${pageNum};
-				length: ${chapterList.length};
-				status: success`);
-				setTimeout(() => {
-					this.run(page, model, ++pageNum, CHAPTERS_URL);
-				}, 3000);
-				return;
-			}
-			console.log('\x1B[31m%s\x1B[0m', 'get page data empty');
-		} else {
-			// console.log('\x1B[31m%s\x1B[0m', 'data over 10 pages, all repeat');
-		}
-		console.log('\x1B[33m%s\x1B[0m', `${model} finished: ${this.list.length}`);
-		this.onModelFinish();
+		this.history = { baseUrl, pageNum, ...this.search };
+		// 加载网页
+		await loadWebsite(this.pageTag, makeUrl(this.history), this.model);
+		// 检测该网页最终类型，走相应逻辑
+		await this.goWithType();
+		// 是列表页才往下走
+		// 判断该列表页是啥类型，走相应逻辑
+		/**
+		 * 如：
+		 * 空页则跳下一页；
+		 * 检测数据量是否需要分开地域搜索;
+		 * 正常获取则往下走;
+		 */
+		await this.doInList();
+		// 顺利通过，开始获取数据
+		const { chapterTitle, chapterList } = await getSearchResult(this.pageTag);
+		const { areaIdx, marketIdx } = this.history;
+
+		this.list = this.list.concat(chapterList);
+		console.log('\x1B[32m%s\x1B[0m', `
+		search: ${this.model};
+		cityName: ${areaIdx > -1 ? area[areaIdx].cityName : ''};
+		marketName: ${(areaIdx > -1 && marketIdx > -1) ? area[areaIdx].children[marketIdx] : ''};
+		page: ${pageNum};
+		length: ${chapterList.length};
+		status: success`);
+
+		// 是否需要下一页，或者下一页是啥
+		this.checkStatus(chapterList.length);
 	}
 
-	async goWithType(page, model) {
-		const type = await getPageType(page);
+	async goWithType() {
+		const type = await getPageType(this.pageTag, this.history);
+		const { pageNum, baseUrl } = this.history;
 		return new Promise(async (resolve, reject) => {
-			if (type === 1) {
-				// 空搜索页
-				// return;
-			} else if (type === 2) {
+			if (type === 2) {
 				// 验证码页
-				await hackVerificationCode(page, () => {
+				await hackVerificationCode(this.pageTag, () => {
 					// 验证码完成
-					this.run(page, model, this.history.pageNum, this.history.CHAPTERS_URL);
-					reject('break js');
+					// 重刷页面
+					this.action(pageNum, baseUrl);
+					reject('break js hack code');
 				});
 				return;
 			} else if (type === 3) {
 				// 其他页
-				this.run(page, model, this.history.pageNum, this.history.CHAPTERS_URL);
-				reject('break js');
+				// 重刷页面
+				this.action(pageNum, baseUrl);
+				reject('break js other page');
 				return;
 			}
 			resolve('continue js');
 		});
+	}
+
+	async doInList() {
+		await this.pageTag.waitForSelector('.footer');
+		const icCount = await this.pageTag.$('#icCount');
+		const pagepicker = await this.pageTag.$$('.pagepicker > li');
+		const return_empty = await this.pageTag.$('.return_empty');
+		const searchAreaCode = this.search.areaIdx > -1;
+		const searchMarket = this.search.marketIdx > -1;
+
+		const count = await icCount.evaluate(node => node.textContent);
+		if (count == 0 || return_empty) {
+			// 地域搜索为空，跳下一地域 || 页码去尽，空搜索页
+			console.log('\x1B[31m%s\x1B[0m', 'get page data empty ', this.pageTag.url());
+			this.nextStep();
+			return Promise.reject('break js empty page');
+		}
+		if (pagepicker.length === 10) {
+			if (!searchAreaCode) {
+				// 搜索页，需分地域搜索
+				this.startArea();
+				return Promise.reject('break js start area');
+			} else if (!searchMarket) {
+				// 某城市内也满了，需要分区域
+				this.startMarket();
+				return Promise.reject('break js start market');
+			}
+			// 指定某城市内的某区域都能满，那只能直接取，最多取10页
+		}
+		// 有数据，并普通总页数，正常取
+	}
+
+	checkStatus(curListLen) {
+		if (curListLen < 49) {
+			// 最后一页，下一步
+			this.nextStep();
+			return;
+		}
+		// 下一页
+		this.nextPage();
+	}
+
+	nextPage() {
+		if (this.pageNum >= 10) {
+			console.log('\x1B[31m%s\x1B[0m', 'data over 10 pages, all repeat ', this.pageTag.url());
+			this.nextStep();
+			return;
+		}
+		this.pageNum++;
+		this.delayLoadPage();
+	}
+
+	nextStep() {
+		const searchAreaCode = this.search.areaIdx > -1;
+		const searchMarket = this.search.marketIdx > -1;
+		if (!searchAreaCode) {
+			// 下一个型号
+			nextModel();
+		} else if (!searchMarket) {
+			// 下一个城市
+			nextArea();
+		} else {
+			// 下一个区域
+			nextMarket();
+		}
+	}
+
+	nextModel() {
+		console.log('\x1B[33m%s\x1B[0m', `${this.model} finished: ${this.list.length}`);
+		this.onModelFinish();
+	}
+
+	nextArea(only = false) {
+		if (this.search.areaIdx >= area.length - 1) {
+			// 已经是最后一个城市
+			this.nextModel();
+			return;
+		}
+		this.search.areaIdx++;
+		// only 表示只搜城市，不带区域
+		!only && (this.search.marketIdx = 0);
+		this.pageNum = 1;
+		this.delayLoadPage();
+	}
+
+	startArea() {
+		this.nextArea(true);
+	}
+
+	nextMarket() {
+		const { areaIdx, marketIdx } = this.search;
+		if (marketIdx >= area[areaIdx].children.length - 1) {
+			// 已经是最后一个区域
+			this.nextArea();
+			return;
+		}
+		this.search.marketIdx++;
+		this.pageNum = 1;
+		this.delayLoadPage();
+	}
+
+	startMarket() {
+		this.nextMarket();
+	}
+
+	delayLoadPage() {
+		// 延迟加载下一页的时间，对抗反爬虫
+		setTimeout(() => {
+			this.action(this.pageNum, this.baseUrl);
+		}, 3000);
 	}
 }
 
