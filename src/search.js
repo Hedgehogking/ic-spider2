@@ -2,8 +2,11 @@ const puppeteer = require('puppeteer');
 const getSearchResult = require('./get-search-result');
 const hackVerificationCode = require('./hack-verification-code');
 const area = require('./area');
+const pageFormat = require('./puppeteer-page-format');
 
 const MAX_RT = 3;
+
+const JUMP_SPEED = 0;
 
 async function getBrowser() {
 	let tempbrowser;
@@ -11,17 +14,25 @@ async function getBrowser() {
 
 	function luanch() {
 		return puppeteer.launch({
-			headless:false,
+			headless: true,
 			ignoreDefaultArgs: ["--enable-automation"],
 			headers: {
-				'User-Agent':'Baiduspider',
+				'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
 			},
 			args: [
-				'--window-size="1200,1000"',
+				'--window-size="1679,859"',
 			//   '--start-fullscreen',
-			//   '--proxy-server=socks5://127.0.0.1:1080'
-			]
+				'--no-sandbox',
+				'--disable-setuid-sandbox',
+				'--disable-blink-features=AutomationControlled',
+				/**
+				 * 破解7
+				 */
+			  // '--proxy-server=http://118.163.13.200:8080'
+			],
+			dumpio: false,
 			}).catch(async ex => {
+				console.log(ex);
 				if (--i > 0) {
 					console.log('browser launch failed. now retry...');
 					const browser = await luanch();
@@ -49,6 +60,7 @@ async function loadWebsite(pageTag, url, model) {
 			'waitUntil':'domcontentloaded',
 			'timeout':60000
 		}).catch(async ex=>{
+			console.log(ex);
 			if(--i > 0) {
 				console.log('fail to goto website. now retry...');
 				await load();
@@ -62,6 +74,7 @@ async function loadWebsite(pageTag, url, model) {
 }
 
 async function getPageType(pageTag) {
+	// const a = await pageTag.evaluate('console.log(navigator)',()=>navigator);
   await pageTag.waitForSelector('.footer');
 	let tmpType = 0;
 	const searchCode = await pageTag.$('#searchCode');
@@ -107,6 +120,7 @@ class Page {
 		 */
 		// this.baseUrl = `https://www.ic.net.cn/searchPnCode.php`;
 		this.baseUrl = `https://www.ic.net.cn/search/${model}.html`;
+		// this.baseUrl = `https://www.baidu.com/s?ie=utf-8&f=8&rsv_bp=1&rsv_idx=1&tn=baidu&wd=ip&fenlei=256&rsv_pq=83712eb400090f8a&rsv_t=0420vuTwjRZdkbt7VruIBx0sR8eoByrxR%2BeJpeJo3Oo21GQYmuTpktCG6Z4&rqlang=cn&rsv_enter=1&rsv_dl=ib&rsv_sug3=2&rsv_sug1=2&rsv_sug7=100&rsv_sug2=0&rsv_btype=i&inputT=746&rsv_sug4=746`;
 		this.search = { areaIdx: -1, marketIdx: -1 };
 		this.onModelFinish = onModelFinish;
 		this.list = [];
@@ -119,6 +133,7 @@ class Page {
 		this.history = { baseUrl, pageNum, ...this.search };
 		// 加载网页
 		await loadWebsite(this.pageTag, makeUrl(this.history), this.model);
+		await this.pageTag.screenshot({ path: './see_the_page.jpg' })
 		// 检测该网页最终类型，走相应逻辑
 		await this.goWithType();
 		// 是列表页才往下走
@@ -152,6 +167,9 @@ class Page {
 		const { pageNum, baseUrl } = this.history;
 		return new Promise(async (resolve, reject) => {
 			if (type === 2) {
+				/**
+				 * 破解4
+				 */
 				// 验证码页
 				await hackVerificationCode(this.pageTag, () => {
 					// 验证码完成
@@ -161,6 +179,9 @@ class Page {
 				});
 				return;
 			} else if (type === 3) {
+				/**
+				 * 破解5
+				 */
 				// 其他页
 				// 重刷页面
 				this.action(pageNum, baseUrl);
@@ -198,6 +219,9 @@ class Page {
 				return Promise.reject('break js start market');
 			}
 			// 指定某城市内的某区域都能满，那只能直接取，最多取10页
+			/**
+			 * 破解6
+			 */
 		}
 		// 有数据，并普通总页数，正常取
 	}
@@ -279,7 +303,7 @@ class Page {
 		// 延迟加载下一页的时间，对抗反爬虫
 		setTimeout(() => {
 			this.action(this.pageNum, this.baseUrl);
-		}, 3000);
+		}, JUMP_SPEED);
 	}
 }
 
@@ -299,9 +323,19 @@ module.exports = class Search {
 			console.log('fail to open page!');
 			return;
 		}
+		/**
+		 * 破解1
+		 */
 		// 不行就用代理
 		console.log('start to expose function "window.stop()"');
 		await page.exposeFunction('stop', () => { return Promise.resolve('already stop') })
+
+
+		/**
+		 * 破解3
+		 */
+		// webdriver 重置页面初始化window对象属性
+		await page.evaluateOnNewDocument(pageFormat);
 
 		const onModelFinish = () => {
 			if (this.curModelIdx < this.models.length) {
