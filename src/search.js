@@ -330,6 +330,18 @@ module.exports = class Search {
 		console.log('start to expose function "window.stop()"');
 		await page.exposeFunction('stop', () => { return Promise.resolve('already stop') })
 
+		/**
+		 * 破解2
+		 */
+		// setUserAgent
+		await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36'/* , {
+			brands: [
+				{brand: 'Google Chrome', version: '93'},
+				{brand: ' Not;A Brand', version: '99'},
+				{brand: 'Chromium', version: '93'},],
+			mobile: false,
+			platform: "macOS"
+		} */);
 
 		/**
 		 * 破解3
