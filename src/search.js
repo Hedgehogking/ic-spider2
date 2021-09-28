@@ -20,7 +20,7 @@ async function getBrowser() {
 				'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
 			},
 			args: [
-				'--window-size="1679,859"',
+				// '--window-size="1679,859"',
 			//   '--start-fullscreen',
 				'--no-sandbox',
 				'--disable-setuid-sandbox',
@@ -28,7 +28,7 @@ async function getBrowser() {
 				/**
 				 * 破解7
 				 */
-			  // '--proxy-server=http://118.163.13.200:8080'
+			  '--proxy-server=http://59.37.18.243:3128'
 			],
 			dumpio: false,
 			}).catch(async ex => {
