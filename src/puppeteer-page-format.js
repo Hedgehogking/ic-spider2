@@ -17,10 +17,10 @@ module.exports = function () {
   window.chrome.runtime = function () { };
 
   //userAgent设置
-  Object.defineProperty(navigator, 'userAgent', {
-    //userAgent在无头模式下有headless字样，所以需覆盖
-    get: () =>
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36'
+  window.randomUA().then(ua => {
+    Object.defineProperty(navigator, 'userAgent', {
+      //userAgent在无头模式下有headless字样，所以需覆盖
+      get: () => ua });
   });
 
   // languages设置
