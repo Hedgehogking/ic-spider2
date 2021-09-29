@@ -3,6 +3,7 @@ const getSearchResult = require('./get-search-result');
 const hackVerificationCode = require('./hack-verification-code');
 const area = require('./area');
 const pageFormat = require('./puppeteer-page-format');
+const randomUA = require('./useragent')();
 
 const MAX_RT = 3;
 
@@ -17,7 +18,7 @@ async function getBrowser() {
 			headless: true,
 			ignoreDefaultArgs: ["--enable-automation"],
 			headers: {
-				'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+				'User-Agent':randomUA,
 			},
 			args: [
 				// '--window-size="1679,859"',
@@ -28,7 +29,7 @@ async function getBrowser() {
 				/**
 				 * 破解7
 				 */
-			  '--proxy-server=http://59.37.18.243:3128'
+			  '--proxy-server=http://125.73.209.67:8080'
 			],
 			dumpio: false,
 			}).catch(async ex => {
@@ -334,7 +335,7 @@ module.exports = class Search {
 		 * 破解2
 		 */
 		// setUserAgent
-		await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36'/* , {
+		await page.setUserAgent(randomUA/* , {
 			brands: [
 				{brand: 'Google Chrome', version: '93'},
 				{brand: ' Not;A Brand', version: '99'},
@@ -347,6 +348,7 @@ module.exports = class Search {
 		 * 破解3
 		 */
 		// webdriver 重置页面初始化window对象属性
+		await page.exposeFunction('randomUA', () => Promise.resolve(randomUA))
 		await page.evaluateOnNewDocument(pageFormat);
 
 		const onModelFinish = () => {
